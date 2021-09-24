@@ -1,3 +1,4 @@
+from model import game_state
 from networking.io import Logger
 from game import Game
 from api import game_util
@@ -46,6 +47,10 @@ def get_move_decision(game: Game) -> MoveDecision:
     harvestables = game_util.within_harvest_range(game_state, my_player.name)
 
     # If we have something to sell that we harvested, then try to move towards the green grocer tiles
+    scare = scarecrow_on_board(game_state)
+    if scare:
+        print("ScareCrow!")
+        moveto(scare)
     if ((sum(my_player.seed_inventory.values()) == 0 and my_player.money >= 5) or
             len(my_player.harvested_inventory)):
 
@@ -98,21 +103,10 @@ def get_action_decision(game: Game) -> ActionDecision:
     logger.debug(f"Possible harvest locations={possible_harvest_locations}")
 
     # If we can harvest something, try to harvest it
+    scare = scarecrow_on_board(game_state)
     if len(possible_harvest_locations) > 0:
         decision = HarvestDecision(possible_harvest_locations)
     # If not but we have that seed, then try to plant it in a fertility band
-    elif my_player.seed_inventory[crop] > 0 and \
-            game_state.tile_map.get_tile(pos.x, pos.y).type != TileType.GREEN_GROCER and \
-            game_state.tile_map.get_tile(pos.x, pos.y).type.value >= TileType.F_BAND_OUTER.value:
-        logger.debug(f"Deciding to try to plant at position {pos}")
-        decision = PlantDecision([crop], [pos])
-    # If we don't have that seed, but we have the money to buy it, then move towards the
-    # green grocer to buy it
-    elif my_player.money >= crop.get_seed_price() and \
-        game_state.tile_map.get_tile(pos.x, pos.y).type == TileType.GREEN_GROCER:
-        logger.debug(f"Buy 1 of {crop}")
-        decision = BuyDecision([crop], [1])
-    # If we can't do any of that, then just do nothing (move around some more)
     else:
         logger.debug(f"Couldn't find anything to do, waiting for move step")
         decision = DoNothingDecision()
@@ -120,12 +114,18 @@ def get_action_decision(game: Game) -> ActionDecision:
     logger.debug(f"[Turn {game_state.turn}] Sending ActionDecision: {decision}")
     return decision
 
+def scarecrow_on_board(game_state):
+    for i in game_state.TileMap:
+        for j in game_state.TileMap[i]:
+            if game_state.get_tile(i,j).scarecrow_effect:
+                return Position(i, j)
+    return None
 
 def main():
     """
     Competitor TODO: choose an item and upgrade for your bot
     """
-    game = Game(ItemType.COFFEE_THERMOS, UpgradeType.SCYTHE)
+    game = Game(ItemType.SCARECROW, UpgradeType.SCYTHE)
 
     while (True):
         try:
