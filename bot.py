@@ -46,6 +46,12 @@ def get_move_decision(game: Game) -> MoveDecision:
     logger.info(f"Currently at {my_player.position}")
     harvestables = game_util.within_harvest_range(game_state, my_player.name)
 
+    def move_towards(posit: Position) -> Position:
+        dists = [(game_util.distance(move_pos, posit), move_pos)
+                 for move_pos in game_util.within_move_range(game_state, my_player.name)]
+        minim = min((dist for dist in dists), key=lambda x: x[0])[1]
+        return minim
+
     # If we have something to sell that we harvested, then try to move towards the green grocer tiles
     scare = scarecrow_on_board(game_state)
     if scare:
@@ -55,7 +61,8 @@ def get_move_decision(game: Game) -> MoveDecision:
             len(my_player.harvested_inventory)):
 
         logger.debug("Moving towards green grocer")
-        decision = MoveDecision(Position(constants.BOARD_WIDTH // 2, max(0, pos.y - constants.MAX_MOVEMENT)))
+        decision = MoveDecision(move_towards(Position(13, 0)))
+        # decision = MoveDecision(Position(constants.BOARD_WIDTH // 2, max(0, pos.y - constants.MAX_MOVEMENT)))
     # If not, then move randomly within the range of locations we can move to
     elif len(harvestables) > 0:
         pos = random.choice(harvestables)
