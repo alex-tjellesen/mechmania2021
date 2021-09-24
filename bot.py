@@ -1,3 +1,4 @@
+from model.decisions import use_item_decision
 from model import game_state
 from networking.io import Logger
 from game import Game
@@ -55,8 +56,9 @@ def get_move_decision(game: Game) -> MoveDecision:
     # If we have something to sell that we harvested, then try to move towards the green grocer tiles
     scare = scarecrow_on_board(game_state)
     if scare:
-        print("ScareCrow!")
-        moveto(scare)
+        val = move_towards(scare)
+        decision = MoveDecision(move_towards(val))
+        
     if ((sum(my_player.seed_inventory.values()) == 0 and my_player.money >= 5) or
             len(my_player.harvested_inventory)):
 
@@ -111,6 +113,8 @@ def get_action_decision(game: Game) -> ActionDecision:
 
     # If we can harvest something, try to harvest it
     scare = scarecrow_on_board(game_state)
+    if game_util.distance(scare, my_player.position) < 3:
+        use_item_decision(scare)
     if len(possible_harvest_locations) > 0:
         decision = HarvestDecision(possible_harvest_locations)
     # If not but we have that seed, then try to plant it in a fertility band
