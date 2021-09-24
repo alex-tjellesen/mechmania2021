@@ -97,25 +97,31 @@ def get_action_decision(game: Game) -> ActionDecision:
 
     logger.debug(f"Possible harvest locations={possible_harvest_locations}")
 
-    # If we can harvest something, try to harvest it
-    if len(possible_harvest_locations) > 0:
-        decision = HarvestDecision(possible_harvest_locations)
-    # If not but we have that seed, then try to plant it in a fertility band
-    elif my_player.seed_inventory[crop] > 0 and \
-            game_state.tile_map.get_tile(pos.x, pos.y).type != TileType.GREEN_GROCER and \
-            game_state.tile_map.get_tile(pos.x, pos.y).type.value >= TileType.F_BAND_OUTER.value:
-        logger.debug(f"Deciding to try to plant at position {pos}")
-        decision = PlantDecision([crop], [pos])
-    # If we don't have that seed, but we have the money to buy it, then move towards the
-    # green grocer to buy it
-    elif my_player.money >= crop.get_seed_price() and \
-        game_state.tile_map.get_tile(pos.x, pos.y).type == TileType.GREEN_GROCER:
-        logger.debug(f"Buy 1 of {crop}")
-        decision = BuyDecision([crop], [1])
-    # If we can't do any of that, then just do nothing (move around some more)
-    else:
-        logger.debug(f"Couldn't find anything to do, waiting for move step")
-        decision = DoNothingDecision()
+    # # If we can harvest something, try to harvest it
+    # if len(possible_harvest_locations) > 0:
+    #     decision = HarvestDecision(possible_harvest_locations)
+    # # If not but we have that seed, then try to plant it in a fertility band
+    # elif my_player.seed_inventory[crop] > 0 and \
+    #         game_state.tile_map.get_tile(pos.x, pos.y).type != TileType.GREEN_GROCER and \
+    #         game_state.tile_map.get_tile(pos.x, pos.y).type.value >= TileType.F_BAND_OUTER.value:
+    #     logger.debug(f"Deciding to try to plant at position {pos}")
+    #     decision = PlantDecision([crop], [pos])
+    # # If we don't have that seed, but we have the money to buy it, then move towards the
+    # # green grocer to buy it
+    # elif my_player.money >= crop.get_seed_price() and \
+    #     game_state.tile_map.get_tile(pos.x, pos.y).type == TileType.GREEN_GROCER:
+    #     logger.debug(f"Buy 1 of {crop}")
+    #     decision = BuyDecision([crop], [1])
+    # # If we can't do any of that, then just do nothing (move around some more)
+    # else:
+    #     logger.debug(f"Couldn't find anything to do, waiting for move step")
+    #     decision = DoNothingDecision()
+
+
+    if game_state.tile_map.get_tile(pos.x, pos.y).type != TileType.GREEN_GROCER\
+            and len(my_player.seed_inventory):
+        #move towards green grocer
+
 
     logger.debug(f"[Turn {game_state.turn}] Sending ActionDecision: {decision}")
     return decision
