@@ -97,23 +97,23 @@ def tile_type_on_turn(turn: int, game_state: GameState, coord: Position) -> Tile
     # Offset records how far into the fertility zone a row is (negative indicates below)
     # Init position indicates the first row that will * become * part of a band after the first shift
     # e.g. 0 = > fertility band starts off the map while 1 = > fertility band starts with 1 row on the map int
-    offset = shifts - row - 1 + constants.F_BAND_INIT_POSITION;
+    offset = shifts - row - 1 + constants.FBAND_INIT_POSITION;
     if (offset < 0):
         # Below fertility band
         newType = TileType.SOIL
-    elif offset < constants.F_BAND_OUTER_HEIGHT:
+    elif offset < constants.FBAND_OUTER_HEIGHT:
         # Within first outer band
         newType = TileType.F_BAND_OUTER
-    elif offset < constants.F_BAND_OUTER_HEIGHT + constants.F_BAND_MID_HEIGHT:
+    elif offset < constants.FBAND_OUTER_HEIGHT + constants.FBAND_MID_HEIGHT:
         # Within first mid band
         newType = TileType.F_BAND_MID
-    elif offset < constants.F_BAND_OUTER_HEIGHT + constants.F_BAND_MID_HEIGHT + constants.F_BAND_INNER_HEIGHT:
+    elif offset < constants.FBAND_OUTER_HEIGHT + constants.FBAND_MID_HEIGHT + constants.FBAND_INNER_HEIGHT:
         # Within inner band
         newType = TileType.F_BAND_INNER
-    elif offset < constants.F_BAND_OUTER_HEIGHT + 2 * constants.F_BAND_MID_HEIGHT + constants.F_BAND_INNER_HEIGHT:
+    elif offset < constants.FBAND_OUTER_HEIGHT + 2 * constants.FBAND_MID_HEIGHT + constants.FBAND_INNER_HEIGHT:
         # Within second mid band
         newType = TileType.F_BAND_MID
-    elif offset < 2 * constants.F_BAND_OUTER_HEIGHT + 2 * constants.F_BAND_MID_HEIGHT + constants.F_BAND_INNER_HEIGHT:
+    elif offset < 2 * constants.FBAND_OUTER_HEIGHT + 2 * constants.FBAND_MID_HEIGHT + constants.FBAND_INNER_HEIGHT:
         # Within second outer band
         newType = TileType.F_BAND_OUTER
     else:
