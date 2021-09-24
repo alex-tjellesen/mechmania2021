@@ -1,2 +1,6 @@
 **/__pycache__/*
 **/*.pyc
+
+/game.json
+/team-java.json
+/team-python.json

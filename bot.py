@@ -43,14 +43,19 @@ def get_move_decision(game: Game) -> MoveDecision:
     my_player: Player = game_state.get_my_player()
     pos: Position = my_player.position
     logger.info(f"Currently at {my_player.position}")
+    harvestables = game_util.within_harvest_range(game_state, my_player.name)
 
     # If we have something to sell that we harvested, then try to move towards the green grocer tiles
-    if random.random() < 0.5 and \
-            (sum(my_player.seed_inventory.values()) == 0 or
-             len(my_player.harvested_inventory)):
+    if ((sum(my_player.seed_inventory.values()) == 0 and my_player.money >= 5) or
+            len(my_player.harvested_inventory)):
+
         logger.debug("Moving towards green grocer")
         decision = MoveDecision(Position(constants.BOARD_WIDTH // 2, max(0, pos.y - constants.MAX_MOVEMENT)))
     # If not, then move randomly within the range of locations we can move to
+    elif len(harvestables) > 0:
+        pos = random.choice(harvestables)
+        logger.debug("Moving towards harvestable")
+        decision = MoveDecision(pos)
     else:
         pos = random.choice(game_util.within_move_range(game_state, my_player.name))
         logger.debug("Moving randomly")
