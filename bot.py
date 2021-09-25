@@ -113,8 +113,14 @@ def get_action_decision(game: Game, itemUsed) -> ActionDecision:
 
     # If we can harvest something, try to harvest it
     scare = scarecrow_on_board(game_state)
-    if scare and scare.x  == my_player.position.x and scare.y == my_player.position.y and not itemUsed:
-        decision = UseItemDecision()
+    if scare and not itemUsed["itemUsed"]:
+        var = game_util.distance(scare, my_player.position)
+        logger.debug("DISTANCE TO {0} ha".format(var))
+        if var == 0:
+            itemUsed["itemUsed"] = True
+            decision = UseItemDecision()
+        else:
+            decision = DoNothingDecision()
     elif len(possible_harvest_locations) > 0:
         decision = HarvestDecision(possible_harvest_locations)
     # If not but we have that seed, then try to plant it in a fertility band
@@ -130,7 +136,7 @@ def scarecrow_on_board(game_state):
         for j in range(len(game_state.tile_map.tiles[i])):
             if game_state.tile_map.get_tile(j,i).scarecrow_effect > -1:
                 logger.debug("SCARECROW FOUND, {0} {1}".format(j, i))
-                return Position(j, i)
+                return Position(j + 2, i + 2)
     return None
 
 def main():
@@ -138,7 +144,7 @@ def main():
     Competitor TODO: choose an item and upgrade for your bot
     """
     game = Game(ItemType.SCARECROW, UpgradeType.SCYTHE)
-    itemUsed = False
+    itemUsed = {"itemUsed": False, "other" : True}
     while (True):
         try:
             game.update_game()
