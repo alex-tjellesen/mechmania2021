@@ -1,3 +1,4 @@
+from model.decisions.use_item_decision import UseItemDecision
 from networking.io import Logger
 from game import Game
 from api import game_util
@@ -22,17 +23,14 @@ logger = Logger()
 constants = Constants()
 
 
-def get_move_decision(game: Game, varis) -> MoveDecision:
+def get_move_decision(game: Game) -> MoveDecision:
     """
     Returns a move decision for the turn given the current game state.
     This is part 1 of 2 of the turn.
-
     Remember, you can only sell crops once you get to a Green Grocer tile,
     and you can only harvest or plant within your harvest or plant radius.
-
     After moving (and submitting the move decision), you will be given a new
     game state with both players in their updated positions.
-
     :param: game The object that contains the game state and other related information
     :returns: MoveDecision A location for the bot to move to this turn
     """
@@ -51,37 +49,19 @@ def get_move_decision(game: Game, varis) -> MoveDecision:
         minim = min((dist for dist in dists), key=lambda x: x[0])[1]
         return minim
 
-    if varis["mode"] == "check":
-
-        if game_state.turn == 15:
-            enemy_pos = game_state.get_my_player().position
-            if game_util.distance(my_player.position, enemy_pos) <= 2:
-                varis["mode"] = "attack"
-            else: varis["mode"] = "farm"
-            decision = MoveDecision(my_player.position)
-
-        else: decision = MoveDecision(my_player.position)
-
-    elif varis["mode"] == "farm":
-        decision = MoveDecision(my_player.position)
-
-    elif varis["mode"] == "attack":
-        # If we have something to sell that we harvested, then try to move towards the green grocer tiles
-        if len(my_player.harvested_inventory):
-            logger.debug("Moving towards green grocer")
-            decision = MoveDecision(move_towards(Position(13, 0)))
-        # If not, then move randomly within the range of locations we can move to
-        else:
-            decision = MoveDecision(move_towards(game_state.get_opponent_player().position))
-
-    else: decision = MoveDecision(my_player.position)
-
+    # If we have something to sell that we harvested, then try to move towards the green grocer tiles
+    if len(my_player.harvested_inventory):
+        logger.debug("Moving towards green grocer")
+        decision = MoveDecision(move_towards(Position(13, 0)))
+    # If not, then move randomly within the range of locations we can move to
+    else:
+        decision = MoveDecision(move_towards(game_state.get_opponent_player().position))
 
     logger.debug(f"[Turn {game_state.turn}] Sending MoveDecision: {decision}")
     return decision
 
 
-def get_action_decision(game: Game, varis) -> ActionDecision:
+def get_action_decision(game: Game) -> ActionDecision:
     """
     Returns an action decision for the turn given the current game state.
     This is part 2 of 2 of the turn.
@@ -141,24 +121,20 @@ def main():
     """
     Competitor TODO: choose an item and upgrade for your bot
     """
-    game = Game(ItemType.COFFEE_THERMOS, UpgradeType.SCYTHE)
-
-    varis = {
-        "mode" : "check"
-    }
+    game = Game(ItemType.COFFEE_THERMOS, UpgradeType.LONGER_LEGS)
 
     while (True):
         try:
             game.update_game()
         except IOError:
             exit(-1)
-        game.send_move_decision(get_move_decision(game, varis))
+        game.send_move_decision(get_move_decision(game))
 
         try:
             game.update_game()
         except IOError:
             exit(-1)
-        game.send_action_decision(get_action_decision(game, varis))
+        game.send_action_decision(get_action_decision(game))
 
 
 if __name__ == "__main__":
