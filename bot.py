@@ -1,3 +1,4 @@
+from model.decisions.use_item_decision import UseItemDecision
 from networking.io import Logger
 from game import Game
 from api import game_util
@@ -111,6 +112,9 @@ def get_action_decision(game: Game) -> ActionDecision:
     #     logger.debug(f"Buy 1 of {crop}")
     #     decision = BuyDecision([crop], [1])
     # If we can't do any of that, then just do nothing (move around some more)
+    elif game_util.distance(pos, game_state.get_opponent_player().position) > 20:
+        logger.debug(f"Opponent too far, activating YEET mode")
+        decision = UseItemDecision()
     else:
         logger.debug(f"Couldn't find anything to do, waiting for move step")
         decision = DoNothingDecision()
