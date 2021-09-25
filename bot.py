@@ -23,19 +23,7 @@ constants = Constants()
 
 
 def get_move_decision(game: Game, varis) -> MoveDecision:
-    """
-    Returns a move decision for the turn given the current game state.
-    This is part 1 of 2 of the turn.
 
-    Remember, you can only sell crops once you get to a Green Grocer tile,
-    and you can only harvest or plant within your harvest or plant radius.
-
-    After moving (and submitting the move decision), you will be given a new
-    game state with both players in their updated positions.
-
-    :param: game The object that contains the game state and other related information
-    :returns: MoveDecision A location for the bot to move to this turn
-    """
     game_state: GameState = game.get_game_state()
     logger.debug(f"[Turn {game_state.turn}] Feedback received from engine: {game_state.feedback}")
 
@@ -63,7 +51,22 @@ def get_move_decision(game: Game, varis) -> MoveDecision:
         else: decision = MoveDecision(my_player.position)
 
     elif varis["mode"] == "farm":
-        decision = MoveDecision(my_player.position)
+        # If we have something to sell that we harvested, then try to move towards the green grocer tiles
+        if sum(my_player.seed_inventory.values()) == 0 and my_player.money >= 100 and game_state.turn < 20 or \
+                (len(my_player.harvested_inventory) > 0 and game_state.turn > varis['wait_time']):
+
+            logger.debug("Moving towards green grocer")
+            pos = min(move_towards(Position(13, 0)), move_towards(Position(17, 0)),
+                      key=lambda x: game_util.distance(x, my_player.position))
+        # else move towards optimal planting location
+        elif sum(my_player.seed_inventory.values()) > 0 and game_state.turn >= 21 and game_state.turn > varis[
+            'wait_time']:
+            pos = move_towards(Position(my_player.position.x, game_state.fband_mid_y + 1))
+
+        decision = MoveDecision(move_towards(pos))
+
+        logger.debug(f"[Turn {game_state.turn}] Sending MoveDecision: {decision}")
+        return decision
 
     elif varis["mode"] == "attack":
         # If we have something to sell that we harvested, then try to move towards the green grocer tiles
@@ -72,7 +75,10 @@ def get_move_decision(game: Game, varis) -> MoveDecision:
             decision = MoveDecision(move_towards(Position(13, 0)))
         # If not, then move randomly within the range of locations we can move to
         else:
-            decision = MoveDecision(move_towards(game_state.get_opponent_player().position))
+            if game_state.turn >= 30:
+                decision = MoveDecision(move_towards(Position(15, 15)))
+            else:
+                decision = MoveDecision(move_towards(game_state.get_opponent_player().position))
 
     else: decision = MoveDecision(my_player.position)
 
@@ -82,60 +88,92 @@ def get_move_decision(game: Game, varis) -> MoveDecision:
 
 
 def get_action_decision(game: Game, varis) -> ActionDecision:
-    """
-    Returns an action decision for the turn given the current game state.
-    This is part 2 of 2 of the turn.
-    There are multiple action decisions that you can return here: BuyDecision,
-    HarvestDecision, PlantDecision, or UseItemDecision.
-    After this action, the next turn will begin.
-    :param: game The object that contains the game state and other related information
-    :returns: ActionDecision A decision for the bot to make this turn
-    """
-    game_state: GameState = game.get_game_state()
-    logger.debug(f"[Turn {game_state.turn}] Feedback received from engine: {game_state.feedback}")
-    # Select your decision here!
-    my_player: Player = game_state.get_my_player()
-    pos: Position = my_player.position
-    # Let the crop of focus be the one we have a seed for, if not just choose a random crop
-    crop = max(my_player.seed_inventory, key=my_player.seed_inventory.get) \
-        if sum(my_player.seed_inventory.values()) > 0 else random.choice(list(CropType))
 
-    # Get a list of possible harvest locations for our harvest radius
-    possible_harvest_locations = []
-    harvest_radius = my_player.harvest_radius
-    for harvest_pos in game_util.within_harvest_range(game_state, my_player.name):
-        if game_state.tile_map.get_tile(harvest_pos.x, harvest_pos.y).crop.value > 0:
-            possible_harvest_locations.append(harvest_pos)
-
-    logger.debug(f"Possible harvest locations={[str(loc) for loc in possible_harvest_locations]}")
-
-    # If we can harvest something, try to harvest it
-    if len(possible_harvest_locations) > 0:
-        decision = HarvestDecision(possible_harvest_locations)
-    # If not but we have that seed, then try to plant it in a fertility band
-    # elif my_player.seed_inventory[crop] > 0 and \
-    #         game_state.tile_map.get_tile(pos.x, pos.y).type != TileType.GREEN_GROCER and \
-    #         crop.get_growth_time() < (9 - game_state.fband_bot_y + pos.y) * 3 and \
-    #         pos.y > 2:
-    #     logger.debug(f"Deciding to try to plant at position {pos}")
-    #     decision = PlantDecision([crop], [pos])
-    # If we don't have that seed, but we have the money to buy it, then move towards the
-    # green grocer to buy it
-    # elif my_player.money >= crop.get_seed_price() and \
-    #         game_state.tile_map.get_tile(pos.x, pos.y).type == TileType.GREEN_GROCER:
-    #     logger.debug(f"Buy 1 of {crop}")
-    #     decision = BuyDecision([crop], [1])
-    # If we can't do any of that, then just do nothing (move around some more)
-    elif game_util.distance(pos, game_state.get_opponent_player().position) > 20:
-        logger.debug(f"Opponent too far, activating YEET mode")
-        decision = UseItemDecision()
-    else:
-        logger.debug(f"Couldn't find anything to do, waiting for move step")
+    if varis["mode"] == "check":
         decision = DoNothingDecision()
 
-    logger.debug(f"[Turn {game_state.turn}] Sending ActionDecision: {decision}")
-    return decision
+    elif varis["mode"] == "attack":
+        game_state: GameState = game.get_game_state()
+        logger.debug(f"[Turn {game_state.turn}] Feedback received from engine: {game_state.feedback}")
+        # Select your decision here!
+        my_player: Player = game_state.get_my_player()
+        pos: Position = my_player.position
+        # Let the crop of focus be the one we have a seed for, if not just choose a random crop
+        crop = max(my_player.seed_inventory, key=my_player.seed_inventory.get) \
+            if sum(my_player.seed_inventory.values()) > 0 else random.choice(list(CropType))
 
+        # Get a list of possible harvest locations for our harvest radius
+        possible_harvest_locations = []
+        harvest_radius = my_player.harvest_radius
+        for harvest_pos in game_util.within_harvest_range(game_state, my_player.name):
+            if game_state.tile_map.get_tile(harvest_pos.x, harvest_pos.y).crop.value > 0:
+                possible_harvest_locations.append(harvest_pos)
+
+        logger.debug(f"Possible harvest locations={[str(loc) for loc in possible_harvest_locations]}")
+
+        # If we can harvest something, try to harvest it
+        if len(possible_harvest_locations) > 0:
+            decision = HarvestDecision(possible_harvest_locations)
+
+        elif game_util.distance(pos, game_state.get_opponent_player().position) > 20:
+            logger.debug(f"Opponent too far, activating YEET mode")
+            decision = UseItemDecision()
+        else:
+            logger.debug(f"Couldn't find anything to do, waiting for move step")
+            decision = DoNothingDecision()
+
+    elif varis["mode"] == "farm":
+        game_state: GameState = game.get_game_state()
+        logger.debug(f"[Turn {game_state.turn}] Feedback received from engine: {game_state.feedback}")
+        # Select your decision here!
+        my_player: Player = game_state.get_my_player()
+        pos: Position = my_player.position
+        # Focus on ducham fruit unless we have enough for golden corn
+        crop = CropType.GOLDEN_CORN \
+            if my_player.money >= 1000 or my_player.seed_inventory[CropType.GOLDEN_CORN] else CropType.DUCHAM_FRUIT
+
+        # Get a list of possible harvest locations for our harvest radius
+        possible_harvest_locations = []
+        harvest_radius = my_player.harvest_radius
+        for harvest_pos in game_util.within_harvest_range(game_state, my_player.name):
+            if game_state.tile_map.get_tile(harvest_pos.x, harvest_pos.y).crop.value > 0:
+                possible_harvest_locations.append(harvest_pos)
+
+        logger.debug(f"Possible harvest locations={[str(loc) for loc in possible_harvest_locations]}")
+        # If we can harvest something, try to harvest it
+        if len(possible_harvest_locations):
+            decision = HarvestDecision(possible_harvest_locations)
+        # If not but we have that seed, then try to plant it in a fertility band
+        elif my_player.seed_inventory[crop] > 0 and \
+                pos.y > 2 and \
+                pos.y == game_state.fband_mid_y + 1:
+            # try to plant at all 5 tiles we can plant on
+            plant_pos = [
+                Position(pos.x, pos.y + 1),
+                Position(pos.x - 1, pos.y),
+                Position(pos.x, pos.y - 1),
+                Position(pos.x + 1, pos.y),
+                Position(pos.x, pos.y),
+            ]
+            logger.debug(f"Deciding to try to plant at position {plant_pos}, planting {crop.name}")
+            varis['wait_time'] = game_state.turn + crop.get_growth_time()
+            decision = PlantDecision([crop for i in range(len(plant_pos))], plant_pos)
+        # If we don't have that seed, but we have the money to buy it, then move towards the
+        # green grocer to buy it
+        elif my_player.money >= crop.get_seed_price() and \
+                game_state.tile_map.get_tile(pos.x, pos.y).type == TileType.GREEN_GROCER and \
+                game_state.turn < 160:
+            buy_count = min(my_player.money // crop.get_seed_price(), 5)
+            logger.debug(f"Buy {buy_count} of {crop}")
+            decision = BuyDecision([crop], [buy_count])
+        # If we can't do any of that, then just do nothing
+        else:
+            logger.debug(f"Couldn't find anything to do, waiting for move step")
+            decision = DoNothingDecision()
+
+    else: decision = DoNothingDecision()
+
+    return decision
 
 def main():
     """
@@ -144,7 +182,10 @@ def main():
     game = Game(ItemType.COFFEE_THERMOS, UpgradeType.SCYTHE)
 
     varis = {
-        "mode" : "check"
+        "mode" : "check",
+        'plant_chill_time': 5,
+        'plants': [],
+        'wait_time': 0
     }
 
     while (True):
