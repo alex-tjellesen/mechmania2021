@@ -98,7 +98,7 @@ def get_action_decision(game: Game, state) -> ActionDecision:
     pos: Position = my_player.position
     # Focus on quads unless we have enough for golden corn
     crop = CropType.GOLDEN_CORN \
-        if my_player.money >= 1000 else CropType.JOGAN_FRUIT
+        if my_player.money >= 1000 else CropType.DUCHAM_FRUIT
 
     # Get a list of possible harvest locations for our harvest radius
     possible_harvest_locations = []
@@ -108,7 +108,6 @@ def get_action_decision(game: Game, state) -> ActionDecision:
             possible_harvest_locations.append(harvest_pos)
 
     logger.debug(f"Possible harvest locations={[str(loc) for loc in possible_harvest_locations]}")
-
     # If we can harvest something, try to harvest it
     if len(possible_harvest_locations) and crops_in_range(game_state, possible_harvest_locations):
         decision = HarvestDecision(possible_harvest_locations)
@@ -125,10 +124,10 @@ def get_action_decision(game: Game, state) -> ActionDecision:
         state['plants'].extend([(pos, game_state.turn + crop.get_growth_time()) for pos in plant_pos if pos.y == my_player.position.y])
     # If we don't have that seed, but we have the money to buy it, then move towards the
     # green grocer to buy it
-    elif my_player.money >= crop.get_seed_price() * 10 and \
+    elif my_player.money >= crop.get_seed_price() * 3 and \
             game_state.tile_map.get_tile(pos.x, pos.y).type == TileType.GREEN_GROCER and \
             not game_util.distance(pos, Position(pos.x, game_state.fband_bot_y + 1)) > 40:
-        buy_count = my_player.money // 20
+        buy_count = my_player.money // crop.get_seed_price()
         logger.debug(f"Buy {buy_count} of {crop}")
         decision = BuyDecision([crop], [buy_count])
     # If we can't do any of that, then just do nothing (move around some more)
