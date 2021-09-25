@@ -53,41 +53,29 @@ def get_move_decision(game: Game, v) -> MoveDecision:
         minim = min((dist for dist in dists), key=lambda x: x[0])[1]
         return minim
 
-# -------------------------------------------------------------
-    # # If we have something to sell that we harvested, then try to move towards the green grocer tiles
-    # if ((sum(my_player.seed_inventory.values()) == 0 and my_player.money >= 5) or
-    #         len(my_player.harvested_inventory)):
-    #
-    #     logger.debug("Moving towards green grocer")
-    #     decision = MoveDecision(move_towards(Position(13, 0)))
-    #     # decision = MoveDecision(Position(constants.BOARD_WIDTH // 2, max(0, pos.y - constants.MAX_MOVEMENT)))
-    # # If not, then move randomly within the range of locations we can move to
-    # elif len(harvestables) > 0:
-    #     pos = random.choice(harvestables)
-    #     logger.debug("Moving towards harvestable")
-    #     decision = MoveDecision(pos)
-    # else:
-    #     pos = random.choice(game_util.within_move_range(game_state, my_player.name))
-    #     logger.debug("Moving randomly")
-    #     decision = MoveDecision(pos)
-#-------------------------------------------------------------
-    #If we havent bought all seeds yet and have no seeds, move towards seeds
-    if my_player.position == Position(14, 0):
+    if (game_state.turn > 2) and (v["plantAll"] == False):
         v["readyToBuy"] = True
 
-    if ((sum(my_player.seed_inventory.values()) == 0) and (v["boughtAll"] == False)):
+    if v["done"] == True:
+        decision = MoveDecision(move_towards(Position(14, 0)))
+    elif ((sum(my_player.seed_inventory.values()) < 6) and v["plantAll"] == False):
         logger.debug("Moving towards green grocer")
         decision = MoveDecision(move_towards(Position(14, 0)))
-    elif my_player.position.y < 40:
-        logger.debug("Moving towards general planting location")
-        decision = MoveDecision(move_towards(Position(12, 40)))
-    elif len(my_player.seed_inventory) > 0:
-        logger.debug("Moving towards specific planting location")
-        decision = MoveDecision(move_towards(Position(v["plantxPos"].pop(), 40)))
+    elif my_player.position.y != 40 or my_player.position.x != 14:
+        logger.debug("Moving towards planting location")
+        decision = MoveDecision(move_towards(Position(14, 40)))
+    elif ((sum(my_player.seed_inventory.values()) > 0)) and my_player.position.y == 40:
         v["readyToPlant"] = True
+        logger.debug("Moving towards specific planting location")
+        decision = MoveDecision(move_towards(Position(14, 40)))
+    elif (len(my_player.harvested_inventory) >= 6):
+        decision = MoveDecision(move_towards(Position(14, 0)))
+        v["done"] = True
+    elif (len(my_player.harvested_inventory)>=4):
+        decision = MoveDecision(move_towards(Position(13, 40)))
+    else:
+        decision = MoveDecision(move_towards(Position(14, 40)))
 
-
-# -------------------------------------------------------------
     logger.debug(f"[Turn {game_state.turn}] Sending MoveDecision: {decision}")
     return decision
 
@@ -146,35 +134,32 @@ def get_action_decision(game: Game, v) -> ActionDecision:
  #        decision = DoNothingDecision()
 # -------------------------------------------------------------
     #crop buy focus
-    if len(v["cropsToBuy"]) > 0:
+    if v["readyToBuy"] == True and len(v["cropsToBuy"]) > 0:
         v["cropBuy"] = v["cropsToBuy"].pop()
     else:
         v["cropBuy"] = CropType(9)
-        v["boughtAll"] = True
+        v["readyToBuy"] = False
 
-    #crop plant focus
-    if len(v["cropsToPlant"]) > 0:
-        v["cropPlant"] = v["cropsToPlant"].pop()
-    else:
-        v["cropPlant"] = CropType(9)
-        v["plantAll"] = True
+
+
 
      # Get a list of possible harvest locations for our harvest radius
     possible_harvest_locations = []
     harvest_radius = my_player.harvest_radius
     for harvest_pos in game_util.within_harvest_range(game_state, my_player.name):
-        if game_state.tile_map.get_tile(harvest_pos.x, harvest_pos.y).crop.value > 0:
+        if game_state.tile_map.get_tile(harvest_pos.x, harvest_pos.y).crop.growth_timer == 0:
             possible_harvest_locations.append(harvest_pos)
-    logger.debug(f"Possible harvest locations={possible_harvest_locations}")
+    #logger.debug(f"Possible harvest locations={[str(loc) for loc in possible_harvest_locations]}")
 
-
-    if my_player.position.y == 0 and v["cropBuy"] != CropType(9) and v["readyToBuy"] == True:  #at shop and crops left to buy and ready to buy
+    if v["readyToBuy"] == True:
         logger.debug("Buy next crop")
         decision = BuyDecision([v["cropBuy"]], [1])
-    elif v["readyToPlant"] == True and v["plantAll"] == False: #ready to plant(on planting space) and havent planted all
+    elif v["readyToPlant"] == True:
         logger.debug("Plant next crop")
-        decision = PlantDecision([v["cropPlant"]], my_player.position)
+        decision = PlantDecision(v["cropsToPlant"], v["plantPositions"])
+        v["plantAll"] = True
         v["readyToPlant"] = False
+        v["readyToBuy"] = False
     elif len(possible_harvest_locations) > 0:
         decision = HarvestDecision(possible_harvest_locations)
     else:
@@ -189,18 +174,16 @@ def main():
     """
     Competitor TODO: choose an item and upgrade for your bot
     """
-    game = Game(ItemType.COFFEE_THERMOS, UpgradeType.SCYTHE)
+    game = Game(ItemType.COFFEE_THERMOS, UpgradeType.SEED_A_PULT)
 
     v = {
-    "boughtAll" : False,
     "plantAll" : False,
-    "plantxPos" : [12, 13, 14, 15, 16, 17],
-    "harvestxPos" : [12, 13, 14, 15, 16, 17],
     "cropsToBuy" : [CropType(1), CropType(2), CropType(3), CropType(4), CropType(6), CropType(7)],
-    # cropsToBuy = [GRAPE, CORN, POTATO, JOGAN_FRUIT, QUADROTRITICALE, DUCHAM_FRUIT]
     "cropsToPlant" : [CropType(1), CropType(2), CropType(3), CropType(4), CropType(6), CropType(7)],
     "readyToPlant" : False,
     "readyToBuy" : False,
+    "plantPositions" : [Position(13,40), Position(13,41),Position(13,39),Position(14,41),Position(14,39),Position(15,40) ],
+    "done" : False
     }
 
     while (True):
