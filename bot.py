@@ -118,8 +118,7 @@ def get_action_decision(game: Game, state) -> ActionDecision:
             pos.y == game_state.fband_mid_y + 1:
         logger.debug(f"Deciding to try to plant at position {pos}")
         # generate locations for 5 to left and right of player
-        plant_pos = [Position(pos.x - i, pos.y + j) for i in range(1, 6) for j in range(0, 2)]
-        plant_pos.extend([Position(pos.x + i, pos.y + j) for i in range(1, 6) for j in range(0, 2)])
+        plant_pos = [Position(my_player.position.x - 1, my_player.position.y), Position(my_player.position.x + 1, my_player.position.y), Position(my_player.position.x , my_player.position.y + 1)]
         decision = PlantDecision([crop for i in range(len(plant_pos))], plant_pos)
         state['plants'].extend([(pos, game_state.turn + crop.get_growth_time()) for pos in plant_pos if pos.y == my_player.position.y])
     # If we don't have that seed, but we have the money to buy it, then move towards the
@@ -143,7 +142,7 @@ def main():
     """
     Competitor TODO: choose an item and upgrade for your bot
     """
-    game = Game(ItemType.DELIVERY_DRONE, UpgradeType.SEED_A_PULT)
+    game = Game(ItemType.DELIVERY_DRONE, UpgradeType.LONGER_LEGS)
     state = {
         'action': "start",
         'plant_chill_time': 5,
