@@ -22,15 +22,9 @@ import copy
 logger = Logger()
 constants = Constants()
 
-boughtAll = False
-plantAll = False
-plantxPos = [12, 13, 14, 15, 16, 17]
-harvestxPos = copy.deepcopy(plantxPos)
-cropsToBuy = [1,2,3,4,6,7]
-cropsToPlant = copy.deepcopy(cropsToBuy)
-readyToPlant = False
 
-def get_move_decision(game: Game) -> MoveDecision:
+
+def get_move_decision(game: Game, v) -> MoveDecision:
     """
     Returns a move decision for the turn given the current game state.
     This is part 1 of 2 of the turn.
@@ -78,7 +72,10 @@ def get_move_decision(game: Game) -> MoveDecision:
     #     decision = MoveDecision(pos)
 #-------------------------------------------------------------
     #If we havent bought all seeds yet and have no seeds, move towards seeds
-    if ((sum(my_player.seed_inventory.values()) == 0) and (boughtAll == False)):
+    if my_player.position == Position(14, 0):
+        v["readyToBuy"] = True
+
+    if ((sum(my_player.seed_inventory.values()) == 0) and (v["boughtAll"] == False)):
         logger.debug("Moving towards green grocer")
         decision = MoveDecision(move_towards(Position(14, 0)))
     elif my_player.position.y < 40:
@@ -86,8 +83,8 @@ def get_move_decision(game: Game) -> MoveDecision:
         decision = MoveDecision(move_towards(Position(12, 40)))
     elif len(my_player.seed_inventory) > 0:
         logger.debug("Moving towards specific planting location")
-        decision = MoveDecision(move_towards(Position(plantxPos.pop(), 40)))
-        readyToPlant = True
+        decision = MoveDecision(move_towards(Position(v["plantxPos"].pop(), 40)))
+        v["readyToPlant"] = True
 
 
 # -------------------------------------------------------------
@@ -95,7 +92,7 @@ def get_move_decision(game: Game) -> MoveDecision:
     return decision
 
 
-def get_action_decision(game: Game) -> ActionDecision:
+def get_action_decision(game: Game, v) -> ActionDecision:
     """
     Returns an action decision for the turn given the current game state.
     This is part 2 of 2 of the turn.
@@ -149,18 +146,18 @@ def get_action_decision(game: Game) -> ActionDecision:
  #        decision = DoNothingDecision()
 # -------------------------------------------------------------
     #crop buy focus
-    if len(cropsToBuy) > 0:
-        cropBuy = cropsToBuy.pop()
+    if len(v["cropsToBuy"]) > 0:
+        v["cropBuy"] = v["cropsToBuy"].pop()
     else:
-        cropBuy = 9
-        boughtAll = True
+        v["cropBuy"] = CropType(9)
+        v["boughtAll"] = True
 
     #crop plant focus
-    if len(cropsToPlant) > 0:
-        cropPlant = cropsToPlant.pop()
+    if len(v["cropsToPlant"]) > 0:
+        v["cropPlant"] = v["cropsToPlant"].pop()
     else:
-        cropPlant = 9
-        plantAll = True
+        v["cropPlant"] = CropType(9)
+        v["plantAll"] = True
 
      # Get a list of possible harvest locations for our harvest radius
     possible_harvest_locations = []
@@ -171,13 +168,13 @@ def get_action_decision(game: Game) -> ActionDecision:
     logger.debug(f"Possible harvest locations={possible_harvest_locations}")
 
 
-    if my_player.position.y == 0 and cropBuy != 9:  #at shop and crops left to buy
+    if my_player.position.y == 0 and v["cropBuy"] != CropType(9) and v["readyToBuy"] == True:  #at shop and crops left to buy and ready to buy
         logger.debug("Buy next crop")
-        decision = BuyDecision([cropBuy], [1])
-    elif readyToPlant == True and plantAll == False: #ready to plant(on planting space) and havent planted all
+        decision = BuyDecision([v["cropBuy"]], [1])
+    elif v["readyToPlant"] == True and v["plantAll"] == False: #ready to plant(on planting space) and havent planted all
         logger.debug("Plant next crop")
-        decision = PlantDecision([cropPlant], my_player.position)
-        readyToPlant = False
+        decision = PlantDecision([v["cropPlant"]], my_player.position)
+        v["readyToPlant"] = False
     elif len(possible_harvest_locations) > 0:
         decision = HarvestDecision(possible_harvest_locations)
     else:
@@ -194,18 +191,30 @@ def main():
     """
     game = Game(ItemType.COFFEE_THERMOS, UpgradeType.SCYTHE)
 
+    v = {
+    "boughtAll" : False,
+    "plantAll" : False,
+    "plantxPos" : [12, 13, 14, 15, 16, 17],
+    "harvestxPos" : [12, 13, 14, 15, 16, 17],
+    "cropsToBuy" : [CropType(1), CropType(2), CropType(3), CropType(4), CropType(6), CropType(7)],
+    # cropsToBuy = [GRAPE, CORN, POTATO, JOGAN_FRUIT, QUADROTRITICALE, DUCHAM_FRUIT]
+    "cropsToPlant" : [CropType(1), CropType(2), CropType(3), CropType(4), CropType(6), CropType(7)],
+    "readyToPlant" : False,
+    "readyToBuy" : False,
+    }
+
     while (True):
         try:
             game.update_game()
         except IOError:
             exit(-1)
-        game.send_move_decision(get_move_decision(game))
+        game.send_move_decision(get_move_decision(game,  v))
 
         try:
             game.update_game()
         except IOError:
             exit(-1)
-        game.send_action_decision(get_action_decision(game))
+        game.send_action_decision(get_action_decision(game, v))
 
 
 if __name__ == "__main__":
