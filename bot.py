@@ -22,11 +22,13 @@ logger = Logger()
 constants = Constants()
 
 
-def crops_in_range(game_state, positions):
-    for pos in positions:
-        if game_state.tile_map.get_tile(pos.x, pos.y).crop.type:
-            return True
-    return False
+def crops_on_map(game_state):
+    crops = []
+    for x in range(len(game_state.tile_map.tiles)):
+        for y in range(len(game_state.tile_map.tiles[x])):
+            if game_state.tile_map.get_tile(x, y).crop.type:
+                crops.append(Position(x, y))
+    return crops
 
 
 def get_move_decision(game: Game, state) -> MoveDecision:
@@ -59,19 +61,16 @@ def get_move_decision(game: Game, state) -> MoveDecision:
         return minim
 
     # If we have something to sell that we harvested, then try to move towards the green grocer tiles
-    if ((sum(my_player.seed_inventory.values()) == 0 and my_player.money >= 5) or
-            len(my_player.harvested_inventory) > 0) and \
-            not len(state['plants']):
+    if sum(my_player.seed_inventory.values()) == 0 and my_player.money >= 100 and game_state.turn < 20 or \
+            (len(my_player.harvested_inventory) > 0 and game_state.turn > state['wait_time']):
 
         logger.debug("Moving towards green grocer")
         pos = min(move_towards(Position(13, 0)), move_towards(Position(17, 0)),
                   key=lambda x: game_util.distance(x, my_player.position))
-    elif sum(my_player.seed_inventory.values()) > 0 and game_state.turn >= 21:
+    # else move towards optimal planting location
+    elif sum(my_player.seed_inventory.values()) > 0 and game_state.turn >= 21 and game_state.turn > state['wait_time']:
         pos = move_towards(Position(my_player.position.x, game_state.fband_mid_y + 1))
-    else:
-        if len(state['plants']) and state['plants'][0][1] <= game_state.turn and crops_in_range(game_state, [state['plants'][0][0]]):
-            pos = move_towards(state['plants'][0][0])
-            state['plants'].remove(state['plants'][0])
+
     decision = MoveDecision(move_towards(pos))
 
     logger.debug(f"[Turn {game_state.turn}] Sending MoveDecision: {decision}")
@@ -96,9 +95,9 @@ def get_action_decision(game: Game, state) -> ActionDecision:
     # Select your decision here!
     my_player: Player = game_state.get_my_player()
     pos: Position = my_player.position
-    # Focus on quads unless we have enough for golden corn
+    # Focus on ducham fruit unless we have enough for golden corn
     crop = CropType.GOLDEN_CORN \
-        if my_player.money >= 1000 else CropType.DUCHAM_FRUIT
+        if my_player.money >= 1000 or my_player.seed_inventory[CropType.GOLDEN_CORN] else CropType.DUCHAM_FRUIT
 
     # Get a list of possible harvest locations for our harvest radius
     possible_harvest_locations = []
@@ -109,28 +108,31 @@ def get_action_decision(game: Game, state) -> ActionDecision:
 
     logger.debug(f"Possible harvest locations={[str(loc) for loc in possible_harvest_locations]}")
     # If we can harvest something, try to harvest it
-    if len(possible_harvest_locations) and crops_in_range(game_state, possible_harvest_locations):
+    if len(possible_harvest_locations):
         decision = HarvestDecision(possible_harvest_locations)
-        state['plants'] = [i for i in state['plants'] if i not in possible_harvest_locations]
     # If not but we have that seed, then try to plant it in a fertility band
     elif my_player.seed_inventory[crop] > 0 and \
-            game_state.tile_map.get_tile(pos.x, pos.y).type != TileType.GREEN_GROCER and \
+           pos.y > 2 and \
             pos.y == game_state.fband_mid_y + 1:
-        logger.debug(f"Deciding to try to plant at position {pos}")
-        # generate locations for 5 to left and right of player
-        plant_pos = [Position(pos.x - i, pos.y + j) for i in range(1, 6) for j in range(0, 2)]
-        plant_pos.extend([Position(pos.x + i, pos.y + j) for i in range(1, 6) for j in range(0, 2)])
+        # try to plant at all 5 tiles we can plant on
+        plant_pos = [
+            Position(pos.x, pos.y + 1),
+            Position(pos.x - 1, pos.y),
+            Position(pos.x, pos.y - 1),
+            Position(pos.x + 1, pos.y),
+            Position(pos.x, pos.y),
+        ]
+        logger.debug(f"Deciding to try to plant at position {plant_pos}, planting {crop.name}")
+        state['wait_time'] = game_state.turn + crop.get_growth_time()
         decision = PlantDecision([crop for i in range(len(plant_pos))], plant_pos)
-        state['plants'].extend([(pos, game_state.turn + crop.get_growth_time()) for pos in plant_pos if pos.y == my_player.position.y])
     # If we don't have that seed, but we have the money to buy it, then move towards the
     # green grocer to buy it
-    elif my_player.money >= crop.get_seed_price() * 3 and \
-            game_state.tile_map.get_tile(pos.x, pos.y).type == TileType.GREEN_GROCER and \
-            not game_util.distance(pos, Position(pos.x, game_state.fband_bot_y + 1)) > 40:
-        buy_count = my_player.money // crop.get_seed_price()
+    elif my_player.money >= crop.get_seed_price() and \
+            game_state.tile_map.get_tile(pos.x, pos.y).type == TileType.GREEN_GROCER:
+        buy_count = min(my_player.money // crop.get_seed_price(), 5)
         logger.debug(f"Buy {buy_count} of {crop}")
         decision = BuyDecision([crop], [buy_count])
-    # If we can't do any of that, then just do nothing (move around some more)
+    # If we can't do any of that, then just do nothing
     else:
         logger.debug(f"Couldn't find anything to do, waiting for move step")
         decision = DoNothingDecision()
@@ -143,11 +145,12 @@ def main():
     """
     Competitor TODO: choose an item and upgrade for your bot
     """
-    game = Game(ItemType.DELIVERY_DRONE, UpgradeType.SEED_A_PULT)
+    game = Game(ItemType.DELIVERY_DRONE, UpgradeType.LONGER_LEGS)
     state = {
         'action': "start",
         'plant_chill_time': 5,
-        'plants': []
+        'plants': [],
+        'wait_time': 0
     }
     while (True):
         try:
