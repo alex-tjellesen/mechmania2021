@@ -42,7 +42,7 @@ def get_move_decision(game: Game, varis) -> MoveDecision:
 
     if varis["mode"] == "check":
 
-        if game_state.turn == 15:
+        if game_state.turn == 5:
             enemy_pos = game_state.get_opponent_player().position
             if game_util.distance(my_player.position, enemy_pos) <= 2:
                 varis["mode"] = "attack"
