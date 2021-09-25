@@ -15,6 +15,8 @@ class GameState:
         self.feedback = gamestate_dict['feedback']
         self.fband_bot_y = ((self.turn - 1) / 3) - 1
         self.fband_mid_y = self.fband_bot_y - constants.FBAND_INNER_HEIGHT - constants.FBAND_OUTER_HEIGHT
+        self.fband_top_y = self.fband_bot_y - constants.FBAND_OUTER_HEIGHT - constants.FBAND_INNER_HEIGHT - constants.FBAND_MID_HEIGHT
+        self.fband_ticks_to_swap = 3 - (self.turn - 1) % 3
 
     def get_my_player(self) -> Player:
         if self.player_num == 1:
