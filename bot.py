@@ -22,6 +22,13 @@ logger = Logger()
 constants = Constants()
 
 
+def crops_in_range(game_state, positions):
+    for pos in positions:
+        if game_state.tile_map.get_tile(pos.x, pos.y).crop.type:
+            return True
+    return False
+
+
 def get_move_decision(game: Game, state) -> MoveDecision:
     """
     Returns a move decision for the turn given the current game state.
@@ -62,7 +69,7 @@ def get_move_decision(game: Game, state) -> MoveDecision:
     elif sum(my_player.seed_inventory.values()) > 0 and game_state.turn >= 21:
         pos = move_towards(Position(my_player.position.x, game_state.fband_mid_y + 1))
     else:
-        if len(state['plants']) and state['plants'][0][1] <= game_state.turn:
+        if len(state['plants']) and state['plants'][0][1] <= game_state.turn and crops_in_range(game_state, [state['plants'][0][0]]):
             pos = move_towards(state['plants'][0][0])
             state['plants'].remove(state['plants'][0])
     decision = MoveDecision(move_towards(pos))
@@ -103,7 +110,7 @@ def get_action_decision(game: Game, state) -> ActionDecision:
     logger.debug(f"Possible harvest locations={[str(loc) for loc in possible_harvest_locations]}")
 
     # If we can harvest something, try to harvest it
-    if len(possible_harvest_locations):
+    if len(possible_harvest_locations) and crops_in_range(game_state, possible_harvest_locations):
         decision = HarvestDecision(possible_harvest_locations)
         state['plants'] = [i for i in state['plants'] if i not in possible_harvest_locations]
     # If not but we have that seed, then try to plant it in a fertility band
@@ -137,7 +144,7 @@ def main():
     """
     Competitor TODO: choose an item and upgrade for your bot
     """
-    game = Game(ItemType.COFFEE_THERMOS, UpgradeType.SEED_A_PULT)
+    game = Game(ItemType.DELIVERY_DRONE, UpgradeType.SEED_A_PULT)
     state = {
         'action': "start",
         'plant_chill_time': 5,
