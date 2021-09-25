@@ -1,5 +1,4 @@
 from model.decisions.use_item_decision import UseItemDecision
-from model import game_state
 from networking.io import Logger
 from game import Game
 from api import game_util
@@ -51,25 +50,20 @@ def get_move_decision(game: Game) -> MoveDecision:
         dists = [(game_util.distance(move_pos, posit), move_pos)
                  for move_pos in game_util.within_move_range(game_state, my_player.name)]
         minim = min((dist for dist in dists), key=lambda x: x[0])[1]
-        logger.debug("{0}, {1}, {2}, {3}".format(minim.x, minim.y, posit.x, posit.y))
         return minim
 
     # If we have something to sell that we harvested, then try to move towards the green grocer tiles
-    scare = scarecrow_on_board(game_state)
-    if scare:
-        logger.debug("moving towards scare")
-        val = move_towards(scare)
-        decision = MoveDecision(move_towards(val))
-        
-    # elif ((sum(my_player.seed_inventory.values()) == 0 and my_player.money >= 5) or len(my_player.harvested_inventory)):
+    # if ((sum(my_player.seed_inventory.values()) == 0 and my_player.money >= 5) or
+    #         len(my_player.harvested_inventory)):
+
     #     logger.debug("Moving towards green grocer")
-    #     #decision = MoveDecision(move_towards(Position(13, 0)))
-    #     # decision = MoveDecision(Position(constants.BOARD_WIDTH // 2, max(0, pos.y - constants.MAX_MOVEMENT)))
-    # # If not, then move randomly within the range of locations we can move to
-    # elif len(harvestables) > 0:
-    #     pos = random.choice(harvestables)
-    #     logger.debug("Moving towards harvestable")
-    #     #decision = MoveDecision(pos)
+    #     decision = MoveDecision(move_towards(Position(13, 0)))
+        # decision = MoveDecision(Position(constants.BOARD_WIDTH // 2, max(0, pos.y - constants.MAX_MOVEMENT)))
+    # If not, then move randomly within the range of locations we can move to
+    if len(harvestables) > 0:
+        pos = random.choice(harvestables)
+        logger.debug("Moving towards harvestable")
+        decision = MoveDecision(pos)
     else:
         pos = random.choice(game_util.within_move_range(game_state, my_player.name))
         logger.debug("Moving randomly")
@@ -79,7 +73,7 @@ def get_move_decision(game: Game) -> MoveDecision:
     return decision
 
 
-def get_action_decision(game: Game, itemUsed) -> ActionDecision:
+def get_action_decision(game: Game, isplanted) -> ActionDecision:
     """
     Returns an action decision for the turn given the current game state.
     This is part 2 of 2 of the turn.
@@ -112,12 +106,26 @@ def get_action_decision(game: Game, itemUsed) -> ActionDecision:
     logger.debug(f"Possible harvest locations={possible_harvest_locations}")
 
     # If we can harvest something, try to harvest it
-    scare = scarecrow_on_board(game_state)
-    if scare and scare.x  == my_player.position.x and scare.y == my_player.position.y and not itemUsed:
-        decision = UseItemDecision()
+    if not isplanted:
+            logger.debug("Planting scarecrow")
+            decision = UseItemDecision()
+            isplanted= True
     elif len(possible_harvest_locations) > 0:
-        decision = HarvestDecision(possible_harvest_locations)
+            #print(possible_harvest_locations[0].x + " " + possible_harvest_locations[0].y)
+            decision = HarvestDecision(possible_harvest_locations)
     # If not but we have that seed, then try to plant it in a fertility band
+    elif my_player.seed_inventory[crop] > 0 and \
+            game_state.tile_map.get_tile(pos.x, pos.y).type != TileType.GREEN_GROCER and \
+            game_state.tile_map.get_tile(pos.x, pos.y).type.value >= TileType.F_BAND_OUTER.value:
+        logger.debug(f"Deciding to try to plant at position {pos}")
+        decision = PlantDecision([crop], [pos])
+    # If we don't have that seed, but we have the money to buy it, then move towards the
+    # green grocer to buy it
+    elif my_player.money >= crop.get_seed_price() and \
+        game_state.tile_map.get_tile(pos.x, pos.y).type == TileType.GREEN_GROCER:
+        logger.debug(f"Buy 1 of {crop}")
+        decision = BuyDecision([crop], [1])
+    # If we can't do any of that, then just do nothing (move around some more)
     else:
         logger.debug(f"Couldn't find anything to do, waiting for move step")
         decision = DoNothingDecision()
@@ -125,20 +133,13 @@ def get_action_decision(game: Game, itemUsed) -> ActionDecision:
     logger.debug(f"[Turn {game_state.turn}] Sending ActionDecision: {decision}")
     return decision
 
-def scarecrow_on_board(game_state):
-    for i in range(len(game_state.tile_map.tiles)):
-        for j in range(len(game_state.tile_map.tiles[i])):
-            if game_state.tile_map.get_tile(j,i).scarecrow_effect > -1:
-                logger.debug("SCARECROW FOUND, {0} {1}".format(j, i))
-                return Position(j, i)
-    return None
 
 def main():
     """
     Competitor TODO: choose an item and upgrade for your bot
     """
     game = Game(ItemType.SCARECROW, UpgradeType.SCYTHE)
-    itemUsed = False
+    plantedScare = False
     while (True):
         try:
             game.update_game()
@@ -150,7 +151,7 @@ def main():
             game.update_game()
         except IOError:
             exit(-1)
-        game.send_action_decision(get_action_decision(game, itemUsed))
+        game.send_action_decision(get_action_decision(game, plantedScare))
 
 
 if __name__ == "__main__":
