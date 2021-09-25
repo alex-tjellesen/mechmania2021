@@ -8,6 +8,7 @@ from model.decisions.buy_decision import BuyDecision
 from model.decisions.harvest_decision import HarvestDecision
 from model.decisions.plant_decision import PlantDecision
 from model.decisions.do_nothing_decision import DoNothingDecision
+from model.decisions.use_item_decision import UseItemDecision
 from model.tile_type import TileType
 from model.item_type import ItemType
 from model.crop_type import CropType
@@ -42,7 +43,7 @@ def get_move_decision(game: Game, varis) -> MoveDecision:
     if varis["mode"] == "check":
 
         if game_state.turn == 15:
-            enemy_pos = game_state.get_my_player().position
+            enemy_pos = game_state.get_opponent_player().position
             if game_util.distance(my_player.position, enemy_pos) <= 2:
                 varis["mode"] = "attack"
             else: varis["mode"] = "farm"
@@ -179,7 +180,7 @@ def main():
     """
     Competitor TODO: choose an item and upgrade for your bot
     """
-    game = Game(ItemType.COFFEE_THERMOS, UpgradeType.SCYTHE)
+    game = Game(ItemType.DELIVERY_DRONE, UpgradeType.LONGER_LEGS)
 
     varis = {
         "mode" : "check",
