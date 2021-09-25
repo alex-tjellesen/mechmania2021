@@ -106,7 +106,7 @@ def get_action_decision(game: Game, isplanted) -> ActionDecision:
     logger.debug(f"Possible harvest locations={possible_harvest_locations}")
 
     # If we can harvest something, try to harvest it
-    if not isplanted:
+    if not isplanted and my_player.position.y > 5:
             logger.debug("Planting scarecrow")
             decision = UseItemDecision()
             isplanted= True
