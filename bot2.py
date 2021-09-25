@@ -1,3 +1,4 @@
+from model.decisions.use_item_decision import UseItemDecision
 from networking.io import Logger
 from game import Game
 from api import game_util
@@ -40,18 +41,21 @@ def get_move_decision(game: Game) -> MoveDecision:
     my_player: Player = game_state.get_my_player()
     pos: Position = my_player.position
     logger.info(f"Currently at {my_player.position}")
+    harvestables = game_util.within_harvest_range(game_state, my_player.name)
+
+    def move_towards(posit: Position) -> Position:
+        dists = [(game_util.distance(move_pos, posit), move_pos)
+                 for move_pos in game_util.within_move_range(game_state, my_player.name)]
+        minim = min((dist for dist in dists), key=lambda x: x[0])[1]
+        return minim
 
     # If we have something to sell that we harvested, then try to move towards the green grocer tiles
-    if random.random() < 0.5 and \
-            (sum(my_player.seed_inventory.values()) == 0 or
-             len(my_player.harvested_inventory)):
+    if len(my_player.harvested_inventory):
         logger.debug("Moving towards green grocer")
-        decision = MoveDecision(Position(constants.BOARD_WIDTH // 2, max(0, pos.y - constants.MAX_MOVEMENT)))
+        decision = MoveDecision(move_towards(Position(13, 0)))
     # If not, then move randomly within the range of locations we can move to
     else:
-        pos = random.choice(game_util.within_move_range(game_state, my_player.name))
-        logger.debug("Moving randomly")
-        decision = MoveDecision(pos)
+        decision = MoveDecision(move_towards(game_state.get_opponent_player().position))
 
     logger.debug(f"[Turn {game_state.turn}] Sending MoveDecision: {decision}")
     return decision
@@ -69,7 +73,6 @@ def get_action_decision(game: Game) -> ActionDecision:
     """
     game_state: GameState = game.get_game_state()
     logger.debug(f"[Turn {game_state.turn}] Feedback received from engine: {game_state.feedback}")
-
     # Select your decision here!
     my_player: Player = game_state.get_my_player()
     pos: Position = my_player.position
@@ -84,24 +87,28 @@ def get_action_decision(game: Game) -> ActionDecision:
         if game_state.tile_map.get_tile(harvest_pos.x, harvest_pos.y).crop.value > 0:
             possible_harvest_locations.append(harvest_pos)
 
-    logger.debug(f"Possible harvest locations={possible_harvest_locations}")
+    logger.debug(f"Possible harvest locations={[str(loc) for loc in possible_harvest_locations]}")
 
     # If we can harvest something, try to harvest it
     if len(possible_harvest_locations) > 0:
         decision = HarvestDecision(possible_harvest_locations)
     # If not but we have that seed, then try to plant it in a fertility band
-    elif my_player.seed_inventory[crop] > 0 and \
-            game_state.tile_map.get_tile(pos.x, pos.y).type != TileType.GREEN_GROCER and \
-            game_state.tile_map.get_tile(pos.x, pos.y).type.value >= TileType.F_BAND_OUTER.value:
-        logger.debug(f"Deciding to try to plant at position {pos}")
-        decision = PlantDecision([crop], [pos])
+    # elif my_player.seed_inventory[crop] > 0 and \
+    #         game_state.tile_map.get_tile(pos.x, pos.y).type != TileType.GREEN_GROCER and \
+    #         crop.get_growth_time() < (9 - game_state.fband_bot_y + pos.y) * 3 and \
+    #         pos.y > 2:
+    #     logger.debug(f"Deciding to try to plant at position {pos}")
+    #     decision = PlantDecision([crop], [pos])
     # If we don't have that seed, but we have the money to buy it, then move towards the
     # green grocer to buy it
-    elif my_player.money >= crop.get_seed_price() and \
-            game_state.tile_map.get_tile(pos.x, pos.y).type == TileType.GREEN_GROCER:
-        logger.debug(f"Buy 1 of {crop}")
-        decision = BuyDecision([crop], [1])
+    # elif my_player.money >= crop.get_seed_price() and \
+    #         game_state.tile_map.get_tile(pos.x, pos.y).type == TileType.GREEN_GROCER:
+    #     logger.debug(f"Buy 1 of {crop}")
+    #     decision = BuyDecision([crop], [1])
     # If we can't do any of that, then just do nothing (move around some more)
+    elif game_util.distance(pos, game_state.get_opponent_player().position) > 20:
+        logger.debug(f"Opponent too far, activating YEET mode")
+        decision = UseItemDecision()
     else:
         logger.debug(f"Couldn't find anything to do, waiting for move step")
         decision = DoNothingDecision()
@@ -114,7 +121,7 @@ def main():
     """
     Competitor TODO: choose an item and upgrade for your bot
     """
-    game = Game(ItemType.COFFEE_THERMOS, UpgradeType.SCYTHE)
+    game = Game(ItemType.COFFEE_THERMOS, UpgradeType.LONGER_LEGS)
 
     while (True):
         try:

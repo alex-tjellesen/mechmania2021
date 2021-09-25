@@ -128,7 +128,8 @@ def get_action_decision(game: Game, state) -> ActionDecision:
     # If we don't have that seed, but we have the money to buy it, then move towards the
     # green grocer to buy it
     elif my_player.money >= crop.get_seed_price() and \
-            game_state.tile_map.get_tile(pos.x, pos.y).type == TileType.GREEN_GROCER:
+            game_state.tile_map.get_tile(pos.x, pos.y).type == TileType.GREEN_GROCER and \
+            game_state.turn < 160:
         buy_count = min(my_player.money // crop.get_seed_price(), 5)
         logger.debug(f"Buy {buy_count} of {crop}")
         decision = BuyDecision([crop], [buy_count])
